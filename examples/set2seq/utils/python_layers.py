@@ -15,11 +15,19 @@ class sortDataGenerator(object):
     self.thread_result = thread_result
 
   def __call__(self):
-    rand_mat = np.random.rand(self.len_sequence, self.batch_size)
+    rand_mat = np.random.rand(self.batch_size, self.len_sequence)
     rand_mat = np.array(rand_mat*self.max_value, dtype=int)
-    label_mat = np.sort(rand_mat, axis=0)
-    self.thread_result['rand_mat'] = rand_mat
-    self.thread_result['label_mat'] = label_mat
+    label_mat = np.sort(rand_mat, axis=1)
+    rand_mat_one_hot = np.zeros((self.batch_size, self.len_sequence, self.max_value))
+    label_mat_one_hot = np.zeros((self.batch_size, self.len_sequence, self.max_value))
+    a1_idx = [[i]*self.len_sequence for i in range(self.batch_size)]    
+    a1_idx = [i for j in a1_idx for i in j]
+    a2_idx = range(self.len_sequence)*self.batch_size
+    rand_mat_one_hot[a1_idx, a2_idx, np.ndarray.flatten(rand_mat)] = 1
+    label_mat_one_hot[a1_idx, a2_idx, np.ndarray.flatten(label_mat)] = 1
+
+    self.thread_result['rand_mat'] = rand_mat_one_hot
+    self.thread_result['label_mat'] = label_mat_one_hot
 
 class caffeDataLayer(caffe.Layer):
 
@@ -74,7 +82,7 @@ class generateSortData(caffeDataLayer):
       raise Exception('Incorrect number of outputs (expected %d, got %d)' %
                       (len(self.top_names), len(top)))
     for top_index, name in enumerate(self.top_names):
-      shape = (self.len_sequence, self.batch_size)
+      shape = (self.batch_size, self.len_sequence, self.max_value)
       top[top_index].reshape(*shape)
 
 

@@ -227,15 +227,15 @@ class caffe_net(object):
     h_conted = L.Eltwise(h, cont_reshape, coeff_blob=True) 
     h = L.InnerProduct(h_conted, num_output=gate_dim, axis=2, bias_term=False,
         weight_filler=weight_filler, param=get_param('W_hc'))
-#    h_name = get_name('%d_h_transform' %timestep)
-#    if not hasattr(self.n, h_name):
-#        setattr(self.n, h_name, h)
-#    gate_input_args = x, h
-#    if static is not None:
-#        gate_input_args += (static, )
-#    gate_input = L.Eltwise(*gate_input_args)
-#    assert cont is not None
-#    c, h = L.LSTMUnit(c, gate_input, cont_reshape, ntop=2)
+    h_name = get_name('%d_h_transform' %timestep)
+    if not hasattr(self.n, h_name):
+        setattr(self.n, h_name, h)
+    gate_input_args = x, h
+    if static is not None:
+        gate_input_args += (static, )
+    gate_input = L.Eltwise(*gate_input_args)
+    assert cont is not None
+    c, h = L.LSTMUnit(c, gate_input, cont_reshape, ntop=2)
     return h, c 
 
   def generate_sequence(self, data, markers, top_name='predict', lstm_static=None, weight_filler=None, bias_filler=None, learning_param_lstm=None, learning_param_ip=None, lstm_hidden=1000):
