@@ -2,7 +2,7 @@ import build_net.caffe_net as cn
 import build_net.set2seq_net as set2seq
 import argparse
 
-def build_set2seq(len_sequence, batch_size, max_value):
+def build_set2seq(len_sequence, batch_size, max_value, message_dim):
 
   tag = 'set2seq'
   train_net = '%s_train.prototxt' %tag
@@ -11,7 +11,8 @@ def build_set2seq(len_sequence, batch_size, max_value):
 
   param_str = {'len_sequence': len_sequence, 'batch_size': batch_size,
                'max_value': max_value, 
-               'top_names': ['rand_data', 'label_data', 'train_label_data']}
+               'top_names': ['rand_data', 'label_data', 'train_label_data'], 
+               'message_dim': message_dim}
 
   net = set2seq.set2sequence_net(param_str)
   net.build_set2seq(param_str, train_net)   
@@ -26,7 +27,8 @@ if __name__ == "__main__":
   parser.add_argument("--len_sequence", type=int, default=5)
   parser.add_argument("--max_value", type=int, default=1)
   parser.add_argument("--batch_size", type=int, default=1)
+  parser.add_argument("--message_dim", type=int, default=10)
 
   args = parser.parse_args()
 
-  build_set2seq(args.len_sequence, args.batch_size, args.max_value)
+  build_set2seq(args.len_sequence, args.batch_size, args.max_value, args.message_dim)

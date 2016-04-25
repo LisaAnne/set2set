@@ -8,7 +8,7 @@ class set2sequence_net(caffe_net):
     self.param_str = param_str
     self.dim_q_star = param_str['len_sequence']*2
     self.N = param_str['batch_size']
-    self.dim_m = param_str['len_sequence']
+    self.dim_m = param_str['message_dim']
     self.dim_s = param_str['len_sequence']
     #hidden unit will be 2*self.dim_m, cell unit will be self.dim_m
     self.gate_dim = (self.dim_m)*4
