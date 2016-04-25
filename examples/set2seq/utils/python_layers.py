@@ -45,6 +45,28 @@ class sortDataRead(object):
     self.thread_result['label_mat'] = label_one_hot_mat_shift
     self.thread_result['train_label_mat'] = train_label_mat #train_label_mat.reshape((self.batch_size, self.len_sequence, 1))
 
+class sortDataGeneratorOne(object):
+ 
+  def __init__(self, len_sequence, max_value, batch_size, thread_result):
+    self.len_sequence = len_sequence
+    self.max_value = max_value
+    self.batch_size = batch_size
+    self.thread_result = thread_result
+
+  def __call__(self):
+    rand_mat = np.random.rand(self.batch_size, self.len_sequence)
+    #rand_mat = np.array(rand_mat*1000, dtype=int)
+    label_mat = np.sort(rand_mat, axis=1)
+    train_label_mat = np.argsort(rand_mat, axis=1)
+
+    label_shift = np.zeros((self.batch_size, self.len_sequence))
+    label_shift[:,1:] = label_mat[:,:-1]
+
+    self.thread_result['rand_mat'] = rand_mat.reshape((self.batch_size, self.len_sequence, 1))
+    self.thread_result['label_mat'] = label_shift.reshape((self.batch_size, self.len_sequence, 1))
+    #self.thread_result['train_label_mat'] = train_label_mat_one_hot
+    self.thread_result['train_label_mat'] = train_label_mat #train_label_mat.reshape((self.batch_size, self.len_sequence, 1))
+
 class sortDataGenerator(object):
  
   def __init__(self, len_sequence, max_value, batch_size, thread_result):
@@ -149,6 +171,42 @@ class generateSortData(caffeDataLayer):
         shape = (self.batch_size, self.len_sequence)
       else:
         shape = (self.batch_size, self.len_sequence, self.max_value)
+      top[top_index].reshape(*shape)
+
+class generateSortDataOne(caffeDataLayer):
+
+  def setup(self, bottom, top):
+
+    self.params = eval(self.param_str)
+    assert 'len_sequence' in self.params.keys()
+    assert 'max_value' in self.params.keys()
+    assert 'batch_size' in self.params.keys()
+
+    self.len_sequence = self.params['len_sequence']
+    self.max_value = self.params['max_value']
+    self.batch_size = self.params['batch_size']
+
+    self.thread_result = {}
+    self.thread = None
+    self.top_names = ['rand_mat', 'label_mat', 'train_label_mat']
+
+    self.batchAdvancer = sortDataGeneratorOne(self.params['len_sequence'], 
+                                              self.params['max_value'], 
+                                              self.params['batch_size'], 
+                                              self.thread_result)
+    self.dispatch_worker()
+    self.join_worker()
+
+    print 'Outputs:', self.top_names
+    if len(top) != len(self.top_names):
+      raise Exception('Incorrect number of outputs (expected %d, got %d)' %
+                      (len(self.top_names), len(top)))
+    for top_index, name in enumerate(self.top_names):
+      if name == 'train_label_mat':
+        #shape = (self.batch_size, self.len_sequence, 1)
+        shape = (self.batch_size, self.len_sequence)
+      else:
+        shape = (self.batch_size, self.len_sequence, 1)
       top[top_index].reshape(*shape)
 
 class readSortData(caffeDataLayer):

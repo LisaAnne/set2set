@@ -28,5 +28,5 @@ def label_mat(mat):
 def read_data(txt_data):
   data = open_txt(txt_data)
   data = [d.split(' ') for d in data]
-  data = [[int(d) for d in data_list] for data_list in data]
-  return np.array(data).astype(int)
+  data = [[float(d) for d in data_list] for data_list in data]
+  return np.array(data)

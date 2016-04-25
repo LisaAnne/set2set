@@ -24,7 +24,7 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
 
   parser.add_argument("--len_sequence", type=int, default=5)
-  parser.add_argument("--max_value", type=int, default=20)
+  parser.add_argument("--max_value", type=int, default=1)
   parser.add_argument("--batch_size", type=int, default=1)
 
   args = parser.parse_args()

@@ -10,15 +10,16 @@ write_prototxt = 'prototxts/deploy_write_set2seq_train.prototxt'
 model_weights = 'snapshots/set2seq_iter_10000.caffemodel'
 max_batch_size = 100
 T = 5
-max_value = 20
+max_value = 1000
 num_process_steps = 1
-test_set = 'utils/data/ls_%d_mv_%d_test.txt' %(T, max_value)
+#test_set = 'utils/data/ls_%d_mv_%d_test.txt' %(T, max_value)
+test_set = 'utils/data/ls_%d_int_test.txt' %(T)
+max_value=1
 process_net = caffe.Net(process_prototxt, model_weights, caffe.TEST)
 write_net = caffe.Net(write_prototxt, model_weights, caffe.TEST)
 
 data = read_data(test_set)
 len_data = data.shape[0]
-
 output = np.zeros((len_data, T))
 
 for i in range(0, len_data, max_batch_size):
@@ -26,7 +27,10 @@ for i in range(0, len_data, max_batch_size):
 
   #un process block
   process_net.blobs['rand_data'].reshape(batch_size, T, max_value)
-  process_net.blobs['rand_data'].data[...] = mat_to_one_hot(data[i:i+batch_size,...], max_value)
+  if max_value > 1:
+    process_net.blobs['rand_data'].data[...] = mat_to_one_hot(data[i:i+batch_size,...], max_value)
+  else:
+    process_net.blobs['rand_data'].data[:,:,0] = data[i:i+batch_size,...]
   #pdb.set_trace()
   #initialize size for internal LSTM layers
   process_net.blobs['q_init'].reshape(1, batch_size, T)
@@ -64,9 +68,13 @@ for i in range(0, len_data, max_batch_size):
     q_star_T = copy.deepcopy(write_net.blobs['gen_h_1'].data[...])
     gen_c_0 = copy.deepcopy(write_net.blobs['gen_c_1'].data[...])
     cont_0 = np.ones((1, batch_size))
-    output[i:i+batch_size,t] = np.where(LSTM_input_0[:,0,:] == 1)[1]
+    if max_value > 1:
+      output[i:i+batch_size,t] = np.where(LSTM_input_0[:,0,:] == 1)[1]
+    else:
+      output[i:i+batch_size,t] = LSTM_input_0.squeeze()
 
-incorrect = np.sum(np.sum(np.sort(output, axis=1) - output, axis=1) > 0)
+
+incorrect = np.sum(np.sum(np.sort(data, axis=1) - output, axis=1) > 0)
 print "Error: %f" %(float(incorrect)/output.shape[0])
 
 

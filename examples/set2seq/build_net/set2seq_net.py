@@ -195,7 +195,8 @@ class set2sequence_net(caffe_net):
 
   def build_set2seq(self, param_str, save_name):
     #self.python_input_layer('python_layers', 'generateSortData', self.param_str)
-    self.python_input_layer('python_layers', 'readSortData', self.param_str)
+    self.python_input_layer('python_layers', 'generateSortDataOne', self.param_str)
+    #self.python_input_layer('python_layers', 'readSortData', self.param_str)
     message = self.build_read_block('rand_data')
     q_star_t = self.build_process_block(message, self.process_steps)
     self.build_write_pointer('label_data', message, q_star_t, self.dim_s)

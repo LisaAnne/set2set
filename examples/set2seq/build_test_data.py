@@ -13,7 +13,7 @@ def build_test_data(len_sequence=2, max_value=5):
   base_sequence = range(max_value)
   s_count = 0
   i_count = 0
-  while s_count < num_gen_sequences and i_count < 1000000:
+  while s_count < num_gen_sequences and i_count < 1000:
     i_count += 1
     if i_count % 100 == 0:
       print s_count, i_count
@@ -38,6 +38,28 @@ def build_test_data(len_sequence=2, max_value=5):
   save_set(test_save_name, test_set)
   save_set(train_save_name, train_set)
 
+def build_test_data_float(len_sequence=2):
+  num_sequences = 1000
+  sequences = [None]*num_sequences
+  test_set = np.random.rand(num_sequences, len_sequence)
+
+  test_save_name = 'utils/data/ls_%d_int_test.txt' %(len_sequence)
+
+  def save_set(save_name, save_set):
+    save = open(save_name, 'w')
+    for t in save_set:
+      save.writelines('%s\n' %(' '.join(map(str, list(t)))))
+    save.close()
+
+  save_set(test_save_name, test_set)
+
 if __name__ == '__main__':
-  build_test_data(int(sys.argv[1]), int(sys.argv[2]))
+  len_sequence = int(sys.argv[1])
+  max_value = int(sys.argv[2])
+
+  if max_value > 1:
+    build_test_data(len_sequence, max_value)
+  else:
+   build_test_data_float(len_sequence) 
+
 
