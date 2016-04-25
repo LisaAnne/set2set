@@ -45,13 +45,13 @@ class set2sequence_net(caffe_net):
     self.n.tops['q_init'] = self.dummy_data_layer([1, self.N, self.dim_m], 0)
     self.n.tops['norm_message'] = L.Power(self.n.tops[message], scale=1./self.dim_m)
     self.n.tops['r_0'] = self.sum_channel('norm_message', 
-                                          [self.N, self.dim_s, self.dim_m])
+                                          [-1, self.dim_s, self.dim_m])
     self.n.tops['q_star_0'] = L.Concat(self.n.tops['q_init'], self.n.tops['r_0'], axis=2) 
 
 
   def f(self, q, m, tag):
     self.n.tops[q + '_reshape'] = L.Reshape(self.n.tops[q],
-                                           shape=dict(dim=[self.N, self.dim_m, 1]))
+                                           shape=dict(dim=[-1, self.dim_m, 1]))
     self.n.tops[q + '_tile'] = L.Tile(self.n.tops[q+'_reshape'], tiles=self.dim_s, axis=2)
     self.n.tops['e_int_%s' %tag] = L.Eltwise(self.n.tops[q+'_tile'], self.n.tops[m], 
                                              operation=0)
@@ -96,26 +96,35 @@ class set2sequence_net(caffe_net):
       self.n.tops[e_t] = self.f(q_t, message, t)
       self.n.tops[a_t] = self.softmax(self.n.tops[e_t], axis=1)
       self.n.tops[a_t_reshape] = L.Reshape(self.n.tops[a_t],
-                                           shape=dict(dim=[self.N, self.dim_s, 1]))
+                                           shape=dict(dim=[-1, self.dim_s, 1]))
       self.n.tops[a_t_tile] = L.Tile(self.n.tops[a_t_reshape], tiles=self.dim_m, axis=2)
       self.n.tops[r_t_mult] = L.Eltwise(self.n.tops[a_t_tile], self.n.tops[message], operation=0) 
       self.n.tops[r_t] = self.sum_channel(r_t_mult, 
-                                          [self.N, self.dim_s, self.dim_m]) 
+                                          [-1, self.dim_s, self.dim_m]) 
       self.n.tops[q_star_t] = L.Concat(self.n.tops[q_t], self.n.tops[r_t], axis=2)  
 
     self.silence(self.n.tops[c_t])
     return q_star_t
 
-  def build_write_pointer(self, LSTM_input, pointer_hidden, encode_vector):
+  def build_write_pointer(self, LSTM_input, pointer_hidden, encode_vector, len_decoder, num_LSTM_inputs=None):
     #want pointer hidden to be N X S X D and encoder vector to be 1 X N X D
 
-    LSTM_inputs = L.Slice(self.n.tops[LSTM_input], axis=1, ntop=self.dim_s)
-    self.rename_tops(LSTM_inputs, ['LSTM_input_%d' %d for d in range(self.dim_s)])  
+    if not num_LSTM_inputs: num_LSTM_inputs = self.dim_s
+    if num_LSTM_inputs > 1:
+      LSTM_inputs = L.Slice(self.n.tops[LSTM_input], axis=1, ntop=num_LSTM_inputs)
+      self.rename_tops(LSTM_inputs, ['LSTM_input_%d' %d for d in range(self.dim_s)]) 
+    else:
+      self.rename_tops([self.n.tops[LSTM_input]], ['LSTM_input_0']) 
+      
     self.n.tops['gen_c_0'] = self.dummy_data_layer([1, self.N, self.dim_m*2], 0)
     self.gate_dim *= 2
+
+    if 'cont_0' not in self.n.tops.keys():
+      self.n.tops['cont_0'] = self.dummy_data_layer([1,self.N], 0)
+ 
  
     #could have done this all without unrolling LSTM (I think?)
-    for t in range(self.dim_s):
+    for t in range(len_decoder):
       h_tm1 = 'gen_h_%d' %t   
       c_tm1 = 'gen_c_%d' %t   
       if t==0:
@@ -137,7 +146,7 @@ class set2sequence_net(caffe_net):
       else:
         cont = 'cont_0'
 
-      self.n.tops[x_t] = L.Reshape(self.n.tops[x_in], shape=dict(dim=[1,self.N, self.in_dim])) 
+      self.n.tops[x_t] = L.Reshape(self.n.tops[x_in], shape=dict(dim=[1,-1, self.in_dim])) 
       #LSTM
       self.n.tops[h_t], self.n.tops[c_t] = self.lstm_unit('gen_lstm', self.n.tops[x_t], 
                                                           self.n.tops[cont], 
@@ -159,7 +168,7 @@ class set2sequence_net(caffe_net):
                                               param=self.named_params(['D_w'], [[1,1]]),
                                               axis=2)
       self.n.tops[de_t_reshape] = L.Reshape(self.n.tops[de_t], 
-                                            shape=dict(dim=[self.N, 1, self.pointer_embed]))
+                                            shape=dict(dim=[-1, 1, self.pointer_embed]))
       self.n.tops[de_t_tile] = L.Tile(self.n.tops[de_t_reshape], tiles=self.dim_s, 
                                            axis=1)
       self.n.tops[sum_t] = L.Eltwise(self.n.tops[en_t], self.n.tops[de_t_tile], 
@@ -171,14 +180,39 @@ class set2sequence_net(caffe_net):
                                         param=self.named_params(['u_w', 'u_b'], [[1,1,],[2,0]]),
                                         axis=2)
       #compute output prob as u
-      self.n.tops[out_t] = L.Softmax(self.n.tops[u_t], axis=1) 
+      #self.n.tops[out_t] = L.Softmax(self.n.tops[u_t], axis=1) 
 
-    self.silence(self.n.tops[c_t])
-    return out_t
+    self.gate_dim /= 2
 
   def build_set2seq(self, param_str, save_name):
     self.python_input_layer('python_layers', 'generateSortData', self.param_str)
     message = self.build_read_block('rand_data')
     q_star_t = self.build_process_block(message, self.process_steps)
-    out_t = self.build_write_pointer('label_data', message, q_star_t)
+    self.build_write_pointer('label_data', message, q_star_t, self.dim_s)
+    self.silence(self.n.tops['gen_c_%d' %(self.dim_s)])
+    self.n.tops['u_concat'] = L.Concat(*[self.n.tops['u_%d' %t] for t in range(1, self.dim_s+1)], axis=2)
+    self.n.tops['loss'] = self.softmax_loss(self.n.tops['u_concat'], 
+                                            self.n.tops['train_label_data'],
+                                            axis=1,loss_weight=1)
+#    self.n.tops['loss'] = self.softmax_loss(self.n.tops['u_concat'], 
+#                                            self.n.tops['train_label_data'],
+#                                            axis=2,loss_weight=1)
     self.write_net('prototxts/' + save_name)
+
+    #build deploy net
+    self.n = caffe.NetSpec()
+    self.n.tops['rand_data'] = self.dummy_data_layer([self.N, self.dim_s, self.in_dim], 0)
+    message = self.build_read_block('rand_data')
+    q_star_t = self.build_process_block(message, self.process_steps)
+    self.write_net('prototxts/deploy_process_' + save_name)
+
+    self.n = caffe.NetSpec()
+    self.n.tops['label_data'] = self.dummy_data_layer([self.N, 1, self.in_dim], 0)
+    self.n.tops['message'] = self.dummy_data_layer([self.N, self.dim_s, self.dim_m], 0)
+    self.n.tops['q_star_T'] = self.dummy_data_layer([1, self.N, 2*self.dim_s], 0)
+    self.build_write_pointer('label_data', 'message', 'q_star_T', 1, num_LSTM_inputs=1)
+    self.n.tops['probs'] = self.softmax(self.n.tops['u_1'], axis=1)
+    #self.n.tops['probs'] = self.softmax(self.n.tops['u_1'], axis=2)
+    self.write_net('prototxts/deploy_write_' + save_name)
+
+

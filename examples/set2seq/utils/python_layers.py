@@ -18,16 +18,39 @@ class sortDataGenerator(object):
     rand_mat = np.random.rand(self.batch_size, self.len_sequence)
     rand_mat = np.array(rand_mat*self.max_value, dtype=int)
     label_mat = np.sort(rand_mat, axis=1)
+    train_label_mat = np.argsort(rand_mat, axis=1)
     rand_mat_one_hot = np.zeros((self.batch_size, self.len_sequence, self.max_value))
     label_mat_one_hot = np.zeros((self.batch_size, self.len_sequence, self.max_value))
+    train_label_mat_one_hot = np.zeros((self.batch_size, self.len_sequence, self.len_sequence))
     a1_idx = [[i]*self.len_sequence for i in range(self.batch_size)]    
     a1_idx = [i for j in a1_idx for i in j]
     a2_idx = range(self.len_sequence)*self.batch_size
     rand_mat_one_hot[a1_idx, a2_idx, np.ndarray.flatten(rand_mat)] = 1
     label_mat_one_hot[a1_idx, a2_idx, np.ndarray.flatten(label_mat)] = 1
+    train_label_mat_one_hot[a1_idx, a2_idx, np.ndarray.flatten(train_label_mat)] = 1
+
+    label_one_hot_mat_shift = np.zeros((self.batch_size, self.len_sequence, self.max_value))
+    label_one_hot_mat_shift[:,1:,:] = label_mat_one_hot[:,:-1,:]
 
     self.thread_result['rand_mat'] = rand_mat_one_hot
-    self.thread_result['label_mat'] = label_mat_one_hot
+    self.thread_result['label_mat'] = label_one_hot_mat_shift
+    #self.thread_result['train_label_mat'] = train_label_mat_one_hot
+    self.thread_result['train_label_mat'] = train_label_mat #train_label_mat.reshape((self.batch_size, self.len_sequence, 1))
+
+#  def __call__(self):
+#    rand_mat = np.random.rand(self.batch_size, self.len_sequence)
+#    rand_mat = np.array(rand_mat*self.max_value, dtype=int)
+#    label_mat = np.sort(rand_mat, axis=1)
+#    rand_mat_one_hot = np.zeros((self.batch_size, self.len_sequence, self.max_value))
+#    label_mat_one_hot = np.zeros((self.batch_size, self.len_sequence, self.max_value))
+#    a1_idx = [[i]*self.len_sequence for i in range(self.batch_size)]    
+#    a1_idx = [i for j in a1_idx for i in j]
+#    a2_idx = range(self.len_sequence)*self.batch_size
+#    rand_mat_one_hot[a1_idx, a2_idx, np.ndarray.flatten(rand_mat)] = 1
+#    label_mat_one_hot[a1_idx, a2_idx, np.ndarray.flatten(label_mat)] = 1
+#
+#    self.thread_result['rand_mat'] = rand_mat_one_hot
+#    self.thread_result['label_mat'] = label_mat_one_hot
 
 class caffeDataLayer(caffe.Layer):
 
@@ -70,7 +93,7 @@ class generateSortData(caffeDataLayer):
 
     self.thread_result = {}
     self.thread = None
-    self.top_names = ['rand_mat', 'label_mat']
+    self.top_names = ['rand_mat', 'label_mat', 'train_label_mat']
 
     self.batchAdvancer = sortDataGenerator(self.params['len_sequence'], self.params['max_value'], 
                                            self.params['batch_size'], self.thread_result)
@@ -82,7 +105,11 @@ class generateSortData(caffeDataLayer):
       raise Exception('Incorrect number of outputs (expected %d, got %d)' %
                       (len(self.top_names), len(top)))
     for top_index, name in enumerate(self.top_names):
-      shape = (self.batch_size, self.len_sequence, self.max_value)
+      if name == 'train_label_mat':
+        #shape = (self.batch_size, self.len_sequence, 1)
+        shape = (self.batch_size, self.len_sequence)
+      else:
+        shape = (self.batch_size, self.len_sequence, self.max_value)
       top[top_index].reshape(*shape)
 
 
