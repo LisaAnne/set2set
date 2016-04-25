@@ -35,7 +35,8 @@ class set2sequence_net(caffe_net):
                                                     shape=dict(dim=message_shape+[1]))
     self.n.tops[message_set+'_sum_int'] = L.Convolution(self.n.tops[message_set+'_reshape'],
                                                     kernel_size=1, stride=1,
-                                                    num_output=1, pad=0, bias=False,
+                                                    num_output=1, pad=0, 
+                                                    bias_term=False,
                                                     weight_filler=self.constant_filler(1),
                                                     param=self.learning_params([[0,0]]))
     return L.Reshape(self.n.tops[message_set+'_sum_int'],
@@ -163,7 +164,7 @@ class set2sequence_net(caffe_net):
                                               axis=2)
       self.n.tops[de_t] = L.InnerProduct(self.n.tops[h_t],
                                               num_output=self.pointer_embed,
-                                              bias=False,
+                                              bias_term=False,
                                               weight_filler= self.gaussian_filler(),
                                               param=self.named_params(['D_w'], [[1,1]]),
                                               axis=2)
@@ -184,8 +185,17 @@ class set2sequence_net(caffe_net):
 
     self.gate_dim /= 2
 
-  def build_set2seq(self, param_str, save_name):
+  def lstm_encoder(self, data):
+    pass
+#    markers = np.ones((self.
+#    self.n.tops['lstm_out'] = L.LSTM(
+
+  def build_pointer(self, param_str, save_name):
     self.python_input_layer('python_layers', 'generateSortData', self.param_str)
+
+  def build_set2seq(self, param_str, save_name):
+    #self.python_input_layer('python_layers', 'generateSortData', self.param_str)
+    self.python_input_layer('python_layers', 'readSortData', self.param_str)
     message = self.build_read_block('rand_data')
     q_star_t = self.build_process_block(message, self.process_steps)
     self.build_write_pointer('label_data', message, q_star_t, self.dim_s)
