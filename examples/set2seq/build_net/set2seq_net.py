@@ -12,9 +12,9 @@ class set2sequence_net(caffe_net):
     self.dim_s = param_str['len_sequence']
     #hidden unit will be 2*self.dim_m, cell unit will be self.dim_m
     self.gate_dim = (self.dim_m)*4
-    self.process_steps = 1 
-    self.pointer_embed = 5
+    self.pointer_embed = param_str['message_dim']
     self.in_dim = param_str['max_value']
+    self.process_steps = param_str['process_steps']
 
   def build_read_block(self, in_x, layers=1):
     #in x should be n' X n where n' is a variable length set size and n is batch size
@@ -52,8 +52,8 @@ class set2sequence_net(caffe_net):
 
   def f(self, q, m, tag):
     self.n.tops[q + '_reshape'] = L.Reshape(self.n.tops[q],
-                                           shape=dict(dim=[-1, self.dim_m, 1]))
-    self.n.tops[q + '_tile'] = L.Tile(self.n.tops[q+'_reshape'], tiles=self.dim_s, axis=2)
+                                           shape=dict(dim=[-1, 1, self.dim_m]))
+    self.n.tops[q + '_tile'] = L.Tile(self.n.tops[q+'_reshape'], tiles=self.dim_s, axis=1)
     self.n.tops['e_int_%s' %tag] = L.Eltwise(self.n.tops[q+'_tile'], self.n.tops[m], 
                                              operation=0)
     return L.Reduction(self.n.tops['e_int_%s' %tag], axis=2)
@@ -65,8 +65,9 @@ class set2sequence_net(caffe_net):
     self.init_q_star0(message)
     self.n.tops['c_0'] = self.dummy_data_layer([1, self.N, self.dim_m], 0)
     self.n.tops['x'] = self.dummy_data_layer([1, self.N, self.dim_m + self.dim_m], 0)
-    self.n.tops['cont_0'] = self.dummy_data_layer([1,self.N], 0)
-    self.n.tops['cont_all'] = self.dummy_data_layer([1,self.N], 1)
+    #self.n.tops['cont_0'] = self.dummy_data_layer([1,self.N], 0)
+    #self.n.tops['cont_0'] = self.dummy_data_layer([1,self.N], 1)
+    self.n.tops['cont_1'] = self.dummy_data_layer([1,self.N], 1)
 
     for t in range(process_steps):    
       q_star_tm1 = 'q_star_%d' %t
@@ -81,9 +82,9 @@ class set2sequence_net(caffe_net):
       c_t = 'c_%d' %(t+1)
       q_t = 'q_%d' %(t+1)
       if t > 0:
-        cont = 'cont_all'
+        cont = 'cont_1'
       else:
-        cont = 'cont_0'
+        cont = 'cont_1'
 
       #lstm unit (input hidden unit, cell unit, x which is just all zeros)
       #returns h and c
@@ -120,8 +121,11 @@ class set2sequence_net(caffe_net):
     self.n.tops['gen_c_0'] = self.dummy_data_layer([1, self.N, self.dim_m*2], 0)
     self.gate_dim *= 2
 
-    if 'cont_0' not in self.n.tops.keys():
-      self.n.tops['cont_0'] = self.dummy_data_layer([1,self.N], 0)
+    if 'cont_1' not in self.n.tops.keys():
+      self.n.tops['cont_1'] = self.dummy_data_layer([1,self.N], 1)
+    #if 'cont_0' not in self.n.tops.keys():
+    #  self.n.tops['cont_0'] = self.dummy_data_layer([1,self.N], 1)
+      #self.n.tops['cont_0'] = self.dummy_data_layer([1,self.N], 1)
  
  
     #could have done this all without unrolling LSTM (I think?)
@@ -143,9 +147,9 @@ class set2sequence_net(caffe_net):
       u_t = 'u_%d' %(t+1)
       out_t = 'out_%d' %(t+1)
       if t > 0:
-        cont = 'cont_all'
+        cont = 'cont_1'
       else:
-        cont = 'cont_0'
+        cont = 'cont_1'
 
       self.n.tops[x_t] = L.Reshape(self.n.tops[x_in], shape=dict(dim=[1,-1, self.in_dim])) 
       #LSTM
@@ -220,7 +224,7 @@ class set2sequence_net(caffe_net):
     self.n = caffe.NetSpec()
     self.n.tops['label_data'] = self.dummy_data_layer([self.N, 1, self.in_dim], 0)
     self.n.tops['message'] = self.dummy_data_layer([self.N, self.dim_s, self.dim_m], 0)
-    self.n.tops['q_star_T'] = self.dummy_data_layer([1, self.N, 2*self.dim_s], 0)
+    self.n.tops['q_star_T'] = self.dummy_data_layer([1, self.N, 2*self.dim_m], 0)
     self.build_write_pointer('label_data', 'message', 'q_star_T', 1, num_LSTM_inputs=1)
     self.n.tops['probs'] = self.softmax(self.n.tops['u_1'], axis=1)
     #self.n.tops['probs'] = self.softmax(self.n.tops['u_1'], axis=2)

@@ -39,7 +39,7 @@ def build_test_data(len_sequence=2, max_value=5):
   save_set(train_save_name, train_set)
 
 def build_test_data_float(len_sequence=2):
-  num_sequences = 1000
+  num_sequences = 10000
   sequences = [None]*num_sequences
   test_set = np.random.rand(num_sequences, len_sequence)
 
