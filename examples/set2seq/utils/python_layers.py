@@ -52,8 +52,12 @@ class sortDataGeneratorOne(object):
     self.max_value = max_value
     self.batch_size = batch_size
     self.thread_result = thread_result
+    self.write_txt = open('train_generate_sents.txt', 'w')
+    self.write_txt.writelines('begin\n')
+    self.write_txt.close()
 
   def __call__(self):
+    self.write_txt = open('train_generate_sents.txt', 'a')
     rand_mat = np.random.rand(self.batch_size, self.len_sequence)
     #rand_mat = np.array(rand_mat*1000, dtype=int)
     label_mat = np.sort(rand_mat, axis=1)
@@ -66,6 +70,9 @@ class sortDataGeneratorOne(object):
     self.thread_result['label_mat'] = label_shift.reshape((self.batch_size, self.len_sequence, 1))
     #self.thread_result['train_label_mat'] = train_label_mat_one_hot
     self.thread_result['train_label_mat'] = train_label_mat #train_label_mat.reshape((self.batch_size, self.len_sequence, 1))
+    for i in range(self.batch_size):
+      self.write_txt.writelines('%s\n' %(' '.join([str(m) for m in np.ndarray.tolist(rand_mat[i,:])])))
+    self.write_txt.close()
 
 class sortDataGenerator(object):
  

@@ -48,6 +48,8 @@ class set2sequence_net(caffe_net):
     self.n.tops['r_0'] = self.sum_channel('norm_message', 
                                           [-1, self.dim_s, self.dim_m])
     self.n.tops['q_star_0'] = L.Concat(self.n.tops['q_init'], self.n.tops['r_0'], axis=2) 
+#  def init_q_star0(self, message):
+#    self.n.tops['q_star_0'] = self.dummy_data_layer([1, self.N, self.dim_m*2], 0) 
 
 
   def f(self, q, m, tag):
