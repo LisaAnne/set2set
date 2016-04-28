@@ -23,7 +23,7 @@ def test_set2seq(tag, T=10, message_size=10, num_process_steps=1):
   test_set = 'utils/data/ls_%d_int_test.txt' %(T)
 
   if not os.path.isfile(test_set):
-    build_test_data(T, 1)
+    build_test_data_float(T)
 
   process_net = caffe.Net(process_prototxt, model_weights, caffe.TEST)
   write_net = caffe.Net(write_prototxt, model_weights, caffe.TEST)
