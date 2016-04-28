@@ -1,5 +1,6 @@
 import sys
 sys.path.insert(0, '../../python/')
+sys.path.insert(0, 'utils/')
 import caffe
 import copy
 import pdb
@@ -10,6 +11,7 @@ caffe.set_mode_gpu()
 import argparse
 from build_set2seq import *
 from build_test_data import *
+import os
 
 def test_set2seq(tag, T=10, message_size=10, num_process_steps=1):
   process_prototxt = 'prototxts/deploy_process_%s_train.prototxt' %tag
